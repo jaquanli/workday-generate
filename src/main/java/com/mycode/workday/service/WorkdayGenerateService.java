@@ -14,6 +14,7 @@ import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -123,13 +124,13 @@ public class WorkdayGenerateService {
         return 28;
     }
 
-    /** 获取全年法定节假日/调休的 {@code "MMdd"} 键集合。 */
+    /** 获取全年法定节假日/调休的 {@code "MMdd"} 键集合。失败则抛异常。 */
     private Set<String> fetchHolidayKeys(int year) throws Exception {
         Set<String> keys = new HashSet<>();
         var body = getWithRetry(API_URL + year);
         if (body == null) {
-            log.warn("获取全年节假日失败，将仅按周末判断");
-            return keys;
+            // 全年节假日是核心数据，缺失会导致大量误判，必须告知用户重试
+            throw new IllegalStateException("获取 " + year + " 年节假日数据失败（接口无响应），请点击「生成工作日」重试");
         }
         JsonNode yearNode = objectMapper.readTree(body).get(String.valueOf(year));
         if (yearNode != null && yearNode.isObject()) {
@@ -138,10 +139,12 @@ public class WorkdayGenerateService {
         return keys;
     }
 
-    /** 并发查询每个周末是否为补班日（返回 0）。 */
+    /** 并发查询每个周末是否为补班日（返回 0）。有查询彻底失败则抛异常，避免返回残缺结果。 */
     private Set<LocalDate> queryMakeupWorkdays(List<LocalDate> weekendDays,
-                                               BiConsumer<Integer, Integer> progress) throws InterruptedException {
+                                               BiConsumer<Integer, Integer> progress) throws Exception {
         Set<LocalDate> makeup = ConcurrentHashMap.newKeySet();
+        // 记录彻底失败的日期（重试耗尽仍未拿到响应）
+        List<LocalDate> failed = Collections.synchronizedList(new ArrayList<>());
         if (weekendDays.isEmpty()) {
             return makeup;
         }
@@ -155,7 +158,10 @@ public class WorkdayGenerateService {
                         var fdate = String.format("%d%02d%02d",
                                 date.getYear(), date.getMonthValue(), date.getDayOfMonth());
                         var body = getWithRetry(API_URL + fdate);
-                        if (body != null && body.trim().equals("0")) {
+                        if (body == null) {
+                            // 重试耗尽仍无响应：记录失败，不静默吞掉
+                            failed.add(date);
+                        } else if (body.trim().equals("0")) {
                             makeup.add(date);
                         }
                     } finally {
@@ -175,6 +181,11 @@ public class WorkdayGenerateService {
                 log.warn("补班查询超时，强制关闭线程池");
                 pool.shutdownNow();
             }
+        }
+        if (!failed.isEmpty()) {
+            // 有查询彻底失败 → 抛异常，由调用方提示用户重试，避免呈现残缺结果
+            throw new IllegalStateException(
+                    "有 " + failed.size() + " 个周末的状态查询失败（接口超时或无响应），请点击「生成工作日」重试");
         }
         return makeup;
     }
