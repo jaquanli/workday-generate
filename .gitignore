@@ -4,3 +4,6 @@
 /dist/
 ## 图标生成中间产物
 /src/main/resources/icon/icon.iconset/
+
+## macOS 系统文件
+.DS_Store
