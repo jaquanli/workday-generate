@@ -101,7 +101,7 @@ public class WorkdayGenerateService {
                     ? makeupWorkdays.contains(date)
                     : !holidayKeys.contains(String.format("%02d%02d", date.getMonthValue(), date.getDayOfMonth()));
             if (isWorkday) {
-                workdays.add(new Workday(0, date, date.getMonthValue(), date.getYear()));
+                workdays.add(new Workday(0, date.atStartOfDay(), date.getMonthValue(), date.getYear()));
             }
         }
         log.info("{} 年共生成工作日 {} 个", year, workdays.size());

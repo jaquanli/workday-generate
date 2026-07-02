@@ -4,8 +4,9 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.apache.fesod.sheet.annotation.ExcelProperty;
+import org.apache.fesod.sheet.annotation.format.DateTimeFormat;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 /**
  * 工作日模型。
@@ -24,7 +25,8 @@ public class Workday {
     private long id;
 
     @ExcelProperty("日期")
-    private LocalDate date;
+    @DateTimeFormat("yyyy-MM-dd HH:mm:ss.SSS")
+    private LocalDateTime date;
 
     @ExcelProperty("月份")
     private int month;

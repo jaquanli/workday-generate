@@ -18,6 +18,7 @@ import org.springframework.stereotype.Component;
 import java.io.File;
 import java.net.URL;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.ResourceBundle;
@@ -35,7 +36,7 @@ public class MainController implements Initializable {
     @FXML private Button btnClear;
     @FXML private TableView<Workday> tableView;
     @FXML private TableColumn<Workday, Number> colId;
-    @FXML private TableColumn<Workday, LocalDate> colDate;
+    @FXML private TableColumn<Workday, LocalDateTime> colDate;
     @FXML private TableColumn<Workday, Number> colMonth;
     @FXML private TableColumn<Workday, Number> colYear;
     @FXML private Label statusLabel;
@@ -60,10 +61,10 @@ public class MainController implements Initializable {
         colYear.setCellValueFactory(new PropertyValueFactory<>("year"));
 
         // 日期列格式化
-        var fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        var fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
         colDate.setCellFactory(col -> new TableCell<>() {
             @Override
-            protected void updateItem(LocalDate item, boolean empty) {
+            protected void updateItem(LocalDateTime item, boolean empty) {
                 super.updateItem(item, empty);
                 setText(empty || item == null ? null : fmt.format(item));
             }
