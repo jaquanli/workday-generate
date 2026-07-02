@@ -25,7 +25,7 @@ public class Workday {
     private long id;
 
     @ExcelProperty("日期")
-    @DateTimeFormat("yyyy-MM-dd HH:mm:ss.SSS")
+    @DateTimeFormat("yyyy-MM-dd HH:mm:ss")
     private LocalDateTime date;
 
     @ExcelProperty("月份")

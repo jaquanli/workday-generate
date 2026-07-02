@@ -1,23 +1,22 @@
 @echo off
-chcp 65001 >nul
+chcp 936 >nul
 setlocal enabledelayedexpansion
 
 REM ##############################
 REM ge-workday — Windows 打包脚本
-REM 产物: dist\ge-workday-1.0.0.exe (Inno Setup 安装包)
+REM 产物: dist\ge-workday-1.0.0.msi (WiX 安装包, 支持企业批量部署)
 REM
-REM 前置: 需安装 JDK17+, Maven (mvn)
-REM 可选: Inno Setup (用于 .exe 安装包, https://jrsoftware.org/isdl.htm)
-REM       WiX Toolset (用于 .msi, https://wixtoolset.org)
+REM 前置: 需安装 JDK17+, Maven (mvn), WiX Toolset 3.x
+REM       WiX 安装: https://wixtoolset.org/releases/v3.14/
 REM ##############################
 
-REM 将 Inno Setup 安装路径加入 PATH (兼容默认/Program Files/用户级安装)
+REM 将 WiX Toolset 路径加入 PATH (兼容 v3.14 默认安装位置)
 for %%P in (
-    "%LOCALAPPDATA%\Programs\Inno Setup 6"
-    "%ProgramFiles%\Inno Setup 6"
-    "%ProgramFiles(x86)%\Inno Setup 6"
+    "%ProgramFiles(x86)%\WiX Toolset v3.14\bin"
+    "%ProgramFiles(x86)%\WiX Toolset 3.14\bin"
+    "%ProgramFiles%\WiX Toolset v3.14\bin"
 ) do (
-    if exist "%%~P\ISCC.exe" set "PATH=%PATH%;%%~P"
+    if exist "%%~P\candle.exe" set "PATH=%PATH%;%%~P"
 )
 
 set APP_NAME=ge-workday
@@ -66,50 +65,34 @@ if not exist "target\workday-generate-%APP_VERSION%.jar" (
 )
 
 echo.
-echo ===== 3. jpackage 打包 =====
+echo ===== 3. jpackage 打包 msi =====
 
-REM 检测安装器工具链:
-REM   - Inno Setup (ISCC) -> 生成 .exe 安装包
-REM   - WiX (candle/light) -> 生成 .msi 安装包
-REM   - 都没有 -> 退回 app-image (生成可直接运行的目录, 无需外部工具)
-set JP_TYPE=app-image
-where ISCC >nul 2>nul && set JP_TYPE=exe
-where candle >nul 2>nul && set JP_TYPE=msi
-echo 使用打包类型: %JP_TYPE%
+REM 检测 WiX (candle/light) — jpackage --type msi 必需
+where candle >nul 2>nul
+if !errorlevel! neq 0 (
+    echo 未找到 candle.exe, 请安装 WiX Toolset 3.x: https://wixtoolset.org/releases/v3.14/
+    exit /b 1
+)
 
 if exist dist rmdir /s /q dist
 mkdir dist
 
-REM jpackage 会复制 --input 目录内容到安装目录；去掉 --main-class，
-REM 让 jpackage 从 jar 的 MANIFEST.MF 读取 Main-Class
-REM (Spring Boot fat jar 的 Main-Class 是 JarLauncher，负责解嵌套加载)
-jpackage --type %JP_TYPE% --name "%APP_NAME%" --app-version "%APP_VERSION%" --vendor "mycode" --description "工作日 Excel 生成导出工具" --input target --main-jar workday-generate-%APP_VERSION%.jar --icon src/main/resources/icon/ge-workday.ico --module-path "%JMODS_DIR%" --add-modules javafx.controls,javafx.fxml,javafx.graphics,java.net.http --java-options "-Xmx256m" --dest dist
+REM jpackage --type msi: 内部调用 WiX (candle+light) 生成 msi 安装包
+REM 产物内嵌完整 JRE + JavaFX, 用户无需预装 Java; 支持组策略下发/静默部署
+jpackage --type msi --name "%APP_NAME%" --app-version "%APP_VERSION%" --vendor "mycode" --description "Workday Excel Generator" --input target --main-jar workday-generate-%APP_VERSION%.jar --icon src/main/resources/icon/ge-workday.ico --module-path "%JMODS_DIR%" --add-modules javafx.controls,javafx.fxml,javafx.graphics,java.net.http --java-options "-Xmx256m" --dest dist --win-menu --win-shortcut --win-dir-chooser --win-upgrade-uuid "B7E3F2A1-4C5D-6E8F-9A0B-1C2D3E4F5A6B"
 if !errorlevel! neq 0 (
-    echo jpackage 执行失败!
+    echo jpackage msi 打包失败!
     exit /b 1
 )
 
-REM 按打包类型定位产物
-set JP_PRODUCT=
-if "!JP_TYPE!"=="exe" (
-    set JP_PRODUCT=dist\%APP_NAME%-%APP_VERSION%.exe
-) else if "!JP_TYPE!"=="msi" (
-    set JP_PRODUCT=dist\%APP_NAME%-%APP_VERSION%.msi
-) else (
-    set JP_PRODUCT=dist\%APP_NAME%\%APP_NAME%.exe
-)
-
+set JP_PRODUCT=dist\%APP_NAME%-%APP_VERSION%.msi
 if exist "!JP_PRODUCT!" (
     for %%A in ("!JP_PRODUCT!") do set SIZE=%%~zA
     set /a SIZE_MB=!SIZE! / 1048576
     echo.
     echo 打包成功: !JP_PRODUCT! ^(!SIZE_MB!MB^)
-    if "!JP_TYPE!"=="app-image" (
-        echo   产物为可运行目录, 双击 !JP_PRODUCT! 即可启动; 可整目录打包 zip 分发。
-    ) else (
-        echo   用户双击安装包即可安装运行。
-    )
-    echo   如需生成 .exe 安装包, 请安装 Inno Setup 并将其加入 PATH: https://jrsoftware.org/isdl.htm
+    echo   用户双击 .msi 即可安装 (内含 JRE, 无需预装 Java)。
+    echo   企业批量部署: msiexec /i %APP_NAME%-%APP_VERSION%.msi /qn INSTALLDIR=路径
 ) else (
     echo 打包失败: 未生成预期文件 !JP_PRODUCT!
     exit /b 1

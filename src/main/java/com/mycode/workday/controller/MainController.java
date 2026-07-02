@@ -61,7 +61,7 @@ public class MainController implements Initializable {
         colYear.setCellValueFactory(new PropertyValueFactory<>("year"));
 
         // 日期列格式化
-        var fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
+        var fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
         colDate.setCellFactory(col -> new TableCell<>() {
             @Override
             protected void updateItem(LocalDateTime item, boolean empty) {
