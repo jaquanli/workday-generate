@@ -1,0 +1,123 @@
+/* ===== 全局 ===== */
+.root {
+    -fx-font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    -fx-font-size: 13px;
+    -fx-background-color: #f5f6fa;
+}
+
+/* ===== 标题栏 ===== */
+.title-bar {
+    -fx-background-color: linear-gradient(to right, #4a6cf7, #6a5acd);
+}
+.title-text {
+    -fx-text-fill: white;
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+}
+
+/* ===== 工具栏 ===== */
+.field-label {
+    -fx-font-size: 13px;
+    -fx-text-fill: #333;
+}
+.year-input {
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
+    -fx-border-color: #d0d5dd;
+    -fx-border-width: 1;
+    -fx-padding: 6 8;
+}
+.year-input:focused {
+    -fx-border-color: #4a6cf7;
+}
+
+/* ===== 按钮 ===== */
+.button {
+    -fx-background-radius: 6;
+    -fx-padding: 8 16;
+    -fx-cursor: hand;
+    -fx-font-size: 13px;
+}
+.btn-primary {
+    -fx-background-color: #4a6cf7;
+    -fx-text-fill: white;
+}
+.btn-primary:hover {
+    -fx-background-color: #3a5ce5;
+}
+.btn-primary:pressed {
+    -fx-background-color: #2f4fd4;
+}
+.btn-normal {
+    -fx-background-color: #ffffff;
+    -fx-text-fill: #333;
+    -fx-border-color: #d0d5dd;
+    -fx-border-width: 1;
+}
+.btn-normal:hover {
+    -fx-background-color: #f0f3ff;
+    -fx-border-color: #4a6cf7;
+}
+.btn-danger {
+    -fx-background-color: #fff0f0;
+    -fx-text-fill: #e74c3c;
+    -fx-border-color: #f5c6cb;
+    -fx-border-width: 1;
+}
+.btn-danger:hover {
+    -fx-background-color: #ffe0e0;
+}
+
+/* ===== 表格 ===== */
+.data-table {
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+    -fx-border-color: #e0e3eb;
+    -fx-border-width: 1;
+    -fx-background-color: white;
+}
+.table-view .column-header {
+    -fx-background-color: #eef1f8;
+    -fx-background-radius: 0;
+}
+.table-view .column-header .label {
+    -fx-font-weight: bold;
+    -fx-text-fill: #333;
+}
+.table-row-cell:odd {
+    -fx-background-color: #fafbfe;
+}
+.table-row-cell:selected {
+    -fx-background-color: #4a6cf7;
+}
+.table-row-cell:selected .text {
+    -fx-fill: white;
+}
+
+/* ===== 状态栏 ===== */
+.status-bar {
+    -fx-background-color: #eef1f8;
+    -fx-border-color: #e0e3eb transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+}
+.status-text {
+    -fx-text-fill: #666;
+    -fx-font-size: 12px;
+}
+.count-label {
+    -fx-text-fill: #4a6cf7;
+    -fx-font-weight: bold;
+    -fx-font-size: 13px;
+}
+.progress-bar > .track {
+    -fx-background-color: #dfe3ee;
+    -fx-background-radius: 7;
+}
+.progress-bar > .bar {
+    -fx-background-color: linear-gradient(to right, #4a6cf7, #6a5acd);
+    -fx-background-radius: 7;
+}
+.progress-text {
+    -fx-text-fill: #666;
+    -fx-font-size: 12px;
+}

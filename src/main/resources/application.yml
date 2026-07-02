@@ -1,0 +1,5 @@
+spring:
+  main:
+    headless: false
+    web-application-type: none
+    banner-mode: console

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox spacing="12" stylesheets="@../css/style.css" xmlns="http://javafx.com/javafx/21"
+      xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.mycode.workday.controller.MainController">
+
+    <!-- 顶部标题栏 -->
+    <HBox styleClass="title-bar" alignment="CENTER_LEFT">
+        <padding><Insets top="14" right="20" bottom="14" left="20"/></padding>
+        <Label text="工作日 Excel 工具" styleClass="title-text"/>
+    </HBox>
+
+    <!-- 操作工具栏 -->
+    <HBox spacing="10" alignment="CENTER_LEFT">
+        <padding><Insets left="20" right="20"/></padding>
+        <Label text="年份:" styleClass="field-label"/>
+        <TextField fx:id="yearField" prefWidth="90" styleClass="year-input"/>
+        <Label text="起始 Id:" styleClass="field-label"/>
+        <TextField fx:id="startIdField" prefWidth="100" styleClass="year-input"/>
+        <Button fx:id="btnGenerate" text="生成工作日" onAction="#onGenerate" styleClass="btn-primary"/>
+        <Button fx:id="btnExport" text="导出 Excel" onAction="#onExport" styleClass="btn-normal"/>
+        <Button fx:id="btnClear" text="清空" onAction="#onClear" styleClass="btn-danger"/>
+        <Region HBox.hgrow="ALWAYS"/>
+        <Label fx:id="countLabel" styleClass="count-label" text="共 0 条"/>
+    </HBox>
+
+    <!-- 数据表格 -->
+    <VBox spacing="6" VBox.vgrow="ALWAYS">
+        <padding><Insets left="20" right="20" bottom="6"/></padding>
+        <TableView fx:id="tableView" VBox.vgrow="ALWAYS" styleClass="data-table">
+            <columns>
+                <TableColumn fx:id="colId" text="Id" prefWidth="100" sortable="false"/>
+                <TableColumn fx:id="colNo" text="序号" prefWidth="80" sortable="false"/>
+                <TableColumn fx:id="colDate" text="日期" prefWidth="180" sortable="false"/>
+                <TableColumn fx:id="colMonth" text="月份" prefWidth="100" sortable="false"/>
+                <TableColumn fx:id="colYear" text="年份" prefWidth="100" sortable="false"/>
+            </columns>
+            <columnResizePolicy>
+                <TableView fx:constant="CONSTRAINED_RESIZE_POLICY"/>
+            </columnResizePolicy>
+        </TableView>
+    </VBox>
+
+    <!-- 底部状态栏 -->
+    <HBox spacing="10" styleClass="status-bar" alignment="CENTER_LEFT">
+        <padding><Insets top="8" right="20" bottom="8" left="20"/></padding>
+        <Label fx:id="statusLabel" text="就绪" styleClass="status-text" HBox.hgrow="ALWAYS"
+               maxWidth="Infinity"/>
+        <ProgressBar fx:id="progressBar" prefWidth="200" prefHeight="14"
+                     styleClass="progress-bar" visible="false"/>
+        <Label fx:id="progressLabel" styleClass="progress-text" visible="false"/>
+    </HBox>
+</VBox>
