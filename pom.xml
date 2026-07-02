@@ -20,6 +20,7 @@
     <properties>
         <java.version>17</java.version>
         <javafx.version>21.0.2</javafx.version>
+        <!-- 默认 classifier；下面 profile 会按操作系统自动覆盖 -->
         <javafx.classifier>mac-aarch64</javafx.classifier>
         <fesod.version>2.0.1-incubating</fesod.version>
     </properties>
@@ -79,8 +80,60 @@
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
                     <mainClass>com.mycode.workday.Launcher</mainClass>
+                    <!-- JavaFX 原生库必须解压到文件系统才能被 JVM 加载（jpackage 需要） -->
+                    <requiresUnpack>
+                        <dependency>
+                            <groupId>org.openjfx</groupId>
+                            <artifactId>javafx-controls</artifactId>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.openjfx</groupId>
+                            <artifactId>javafx-fxml</artifactId>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.openjfx</groupId>
+                            <artifactId>javafx-graphics</artifactId>
+                        </dependency>
+                    </requiresUnpack>
                 </configuration>
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!-- macOS Apple Silicon (M1/M2/M3) → 自动激活 -->
+        <profile>
+            <id>mac-aarch64</id>
+            <activation>
+                <os><family>mac</family></os>
+                <property><name>os.arch</name><value>aarch64</value></property>
+            </activation>
+            <properties>
+                <javafx.classifier>mac-aarch64</javafx.classifier>
+            </properties>
+        </profile>
+
+        <!-- macOS Intel → 自动激活 -->
+        <profile>
+            <id>mac-x64</id>
+            <activation>
+                <os><family>mac</family></os>
+                <property><name>os.arch</name><value>x86_64</value></property>
+            </activation>
+            <properties>
+                <javafx.classifier>mac</javafx.classifier>
+            </properties>
+        </profile>
+
+        <!-- Windows x64 → 自动激活 -->
+        <profile>
+            <id>windows</id>
+            <activation>
+                <os><family>windows</family></os>
+            </activation>
+            <properties>
+                <javafx.classifier>win</javafx.classifier>
+            </properties>
+        </profile>
+    </profiles>
 </project>
