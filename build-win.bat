@@ -6,8 +6,8 @@ REM ##############################
 REM ge-workday — Windows 打包脚本
 REM 产物: dist\ge-workday-1.0.0.msi (WiX 安装包, 支持企业批量部署)
 REM
-REM 前置: 需安装 JDK17+, Maven (mvn), WiX Toolset 3.x
-REM       WiX 安装: https://wixtoolset.org/releases/v3.14/
+REM 前置: 需安装 JDK17+, Maven (mvn)
+REM       WiX Toolset 3.x 如果未安装，脚本会自动通过 winget/PowerShell 安装
 REM ##############################
 
 REM 将 WiX Toolset 路径加入 PATH (兼容 v3.14 默认安装位置)
@@ -65,14 +65,57 @@ if not exist "target\workday-generate-%APP_VERSION%.jar" (
 )
 
 echo.
-echo ===== 3. jpackage 打包 msi =====
-
-REM 检测 WiX (candle/light) — jpackage --type msi 必需
+echo ===== 3. 检测/安装 WiX Toolset 3.x =====
 where candle >nul 2>nul
+if !errorlevel! equ 0 (
+    echo WiX Toolset 已安装
+    goto :jpackage
+)
+
+echo 未找到 candle.exe，尝试自动安装 WiX Toolset 3.x...
+
+REM 方法1: winget (Windows 10/11 自带)
+where winget >nul 2>nul
+if !errorlevel! equ 0 (
+    echo 通过 winget 安装 WiX Toolset 3.14...
+    winget install WiXToolset.WiXToolset --version 3.14.0 --accept-source-agreements --accept-package-agreements --silent
+    if !errorlevel! equ 0 goto :wix_path
+)
+
+REM 方法2: PowerShell 静默下载安装
+echo 通过 PowerShell 下载安装 WiX Toolset 3.14...
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+    "$url='https://github.com/wixtoolset/wix3/releases/download/wix3141rtm/wix314.exe';" ^
+    "$out=\"$env:TEMP\wix314.exe\";" ^
+    "Write-Host '下载中...';" ^
+    "Invoke-WebRequest -Uri $url -OutFile $out;" ^
+    "Write-Host '安装中...';" ^
+    "Start-Process -FilePath $out -ArgumentList '/install /quiet /norestart' -Wait;" ^
+    "Remove-Item $out -Force"
 if !errorlevel! neq 0 (
-    echo 未找到 candle.exe, 请安装 WiX Toolset 3.x: https://wixtoolset.org/releases/v3.14/
+    echo WiX 自动安装失败！请手动安装: https://github.com/wixtoolset/wix3/releases
     exit /b 1
 )
+
+:wix_path
+REM 将 Wix 目录加入 PATH（安装后 winext 可能在重启后才能生效，这里直接查找）
+for %%P in (
+    "%ProgramFiles(x86)%\WiX Toolset v3.14\bin"
+    "%ProgramFiles(x86)%\WiX Toolset 3.14\bin"
+    "%ProgramFiles%\WiX Toolset v3.14\bin"
+) do (
+    if exist "%%~P\candle.exe" set "PATH=%PATH%;%%~P"
+)
+where candle >nul 2>nul
+if !errorlevel! neq 0 (
+    echo WiX 安装完成但未在 PATH 中找到 candle.exe，请重新打开终端后重试
+    exit /b 1
+)
+echo WiX Toolset 3.x 安装成功
+
+:jpackage
+echo.
+echo ===== 4. jpackage 打包 msi =====
 
 if exist dist rmdir /s /q dist
 mkdir dist
