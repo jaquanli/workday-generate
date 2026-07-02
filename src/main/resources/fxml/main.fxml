@@ -11,7 +11,7 @@
     <!-- 顶部标题栏 -->
     <HBox styleClass="title-bar" alignment="CENTER_LEFT">
         <padding><Insets top="14" right="20" bottom="14" left="20"/></padding>
-        <Label text="工作日 Excel 工具" styleClass="title-text"/>
+        <Label text="工作日工具" styleClass="title-text"/>
     </HBox>
 
     <!-- 操作工具栏 -->

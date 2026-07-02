@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 >nul
 setlocal enabledelayedexpansion
 
 REM ##############################
@@ -9,7 +10,7 @@ REM 前置: 需安装 JDK17+, Maven (mvn)
 REM 可选: WiX Toolset (用于 .msi, https://wixtoolset.org)
 REM ##############################
 
-set APP_NAME=工作日Excel工具
+set APP_NAME=ge-workday
 set APP_VERSION=1.0.0
 set JAVAFX_VERSION=21.0.2
 set JMODS_DIR=build\javafx-jmods-%JAVAFX_VERSION%
@@ -70,6 +71,7 @@ jpackage ^
     --description "工作日 Excel 生成导出工具" ^
     --input target ^
     --main-jar workday-excel-%APP_VERSION%.jar ^
+    --icon src/main/resources/icon/ge-workday.ico ^
     --module-path "%JMODS_DIR%" ^
     --add-modules javafx.controls,javafx.fxml,javafx.graphics,java.net.http ^
     --java-options "-Xmx256m" ^

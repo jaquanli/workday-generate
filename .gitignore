@@ -2,3 +2,5 @@
 /.idea/
 /build/
 /dist/
+## 图标生成中间产物
+/src/main/resources/icon/icon.iconset/

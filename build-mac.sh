@@ -6,7 +6,7 @@ set -euo pipefail
 # 产物: dist/工作日Excel工具-1.0.0.dmg
 ##############################
 
-APP_NAME="工作日Excel工具"
+APP_NAME="ge-workday"
 APP_VERSION="1.0.0"
 JAVAFX_VERSION="21.0.2"
 
@@ -73,6 +73,7 @@ jpackage \
     --description "工作日 Excel 生成导出工具" \
     --input target \
     --main-jar "workday-excel-${APP_VERSION}.jar" \
+    --icon src/main/resources/icon/ge-workday.icns \
     --module-path "$JMODS_DIR" \
     --add-modules javafx.controls,javafx.fxml,javafx.graphics,java.net.http \
     --java-options "-Xmx256m" \

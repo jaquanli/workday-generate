@@ -43,7 +43,7 @@ public class WorkdayApplication extends Application {
         Scene scene = new Scene(root, 860, 600);
         scene.getStylesheets().add(getClass().getResource("/css/style.css").toExternalForm());
 
-        primaryStage.setTitle("工作日 Excel 工具");
+        primaryStage.setTitle("工作日工具");
         primaryStage.setScene(scene);
         primaryStage.setMinWidth(720);
         primaryStage.setMinHeight(480);
