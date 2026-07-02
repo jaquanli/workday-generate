@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ##############################
-# 工作日Excel工具 — macOS 打包脚本
-# 产物: dist/工作日Excel工具-1.0.0.dmg
+# ge-workday — macOS 打包脚本
+# 产物: dist/ge-workday-1.0.0.dmg
 ##############################
 
 APP_NAME="ge-workday"
@@ -52,8 +52,8 @@ echo ""
 echo "===== 2. Maven 构建 (arch=${JFX_ARCH}) ====="
 mvn clean package -DskipTests -q 2>&1 | tail -5
 
-if [ ! -f "target/workday-excel-${APP_VERSION}.jar" ]; then
-    echo "❌ 构建失败: 找不到 target/workday-excel-${APP_VERSION}.jar"
+if [ ! -f "target/workday-generate-${APP_VERSION}.jar" ]; then
+    echo "❌ 构建失败: 找不到 target/workday-generate-${APP_VERSION}.jar"
     exit 1
 fi
 
@@ -72,7 +72,7 @@ jpackage \
     --vendor "mycode" \
     --description "工作日 Excel 生成导出工具" \
     --input target \
-    --main-jar "workday-excel-${APP_VERSION}.jar" \
+    --main-jar "workday-generate-${APP_VERSION}.jar" \
     --icon src/main/resources/icon/ge-workday.icns \
     --module-path "$JMODS_DIR" \
     --add-modules javafx.controls,javafx.fxml,javafx.graphics,java.net.http \

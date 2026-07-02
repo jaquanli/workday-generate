@@ -3,8 +3,8 @@ chcp 65001 >nul
 setlocal enabledelayedexpansion
 
 REM ##############################
-REM 工作日Excel工具 — Windows 打包脚本
-REM 产物: dist\工作日Excel工具-1.0.0.exe
+REM ge-workday — Windows 打包脚本
+REM 产物: dist\ge-workday-1.0.0.exe
 REM
 REM 前置: 需安装 JDK17+, Maven (mvn)
 REM 可选: WiX Toolset (用于 .msi, https://wixtoolset.org)
@@ -50,8 +50,8 @@ if %errorlevel% neq 0 (
     echo Maven 构建失败!
     exit /b 1
 )
-if not exist "target\workday-excel-%APP_VERSION%.jar" (
-    echo 构建失败: 找不到 target\workday-excel-%APP_VERSION%.jar
+if not exist "target\workday-generate-%APP_VERSION%.jar" (
+    echo 构建失败: 找不到 target\workday-generate-%APP_VERSION%.jar
     exit /b 1
 )
 
@@ -70,7 +70,7 @@ jpackage ^
     --vendor "mycode" ^
     --description "工作日 Excel 生成导出工具" ^
     --input target ^
-    --main-jar workday-excel-%APP_VERSION%.jar ^
+    --main-jar workday-generate-%APP_VERSION%.jar ^
     --icon src/main/resources/icon/ge-workday.ico ^
     --module-path "%JMODS_DIR%" ^
     --add-modules javafx.controls,javafx.fxml,javafx.graphics,java.net.http ^

@@ -14,7 +14,7 @@
     <groupId>com.mycode</groupId>
     <artifactId>workday-generate</artifactId>
     <version>1.0.0</version>
-    <name>workday-excel</name>
+    <name>workday-generate</name>
     <description>SpringBoot4 + Apache Fesod + JavaFX 工作日Excel生成导出工具</description>
 
     <properties>

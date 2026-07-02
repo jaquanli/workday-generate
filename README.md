@@ -1,4 +1,4 @@
-# workday-excel
+# workday-generate
 
 Spring Boot 4 + Apache Fesod + JavaFX 桌面应用，实现工作日 Excel 的**生成 / 导出**功能。
 
@@ -38,13 +38,13 @@ mvn spring-boot:run
 **macOS**：
 ```bash
 ./build-mac.sh
-# 产物: dist/工作日Excel工具-1.0.0.dmg (约 70MB)
+# 产物: dist/ge-workday-1.0.0.dmg (约 70MB)
 ```
 
 **Windows**（需在 Windows 机器上执行）：
 ```bash
 build-win.bat
-# 产物: dist\工作日Excel工具-1.0.0.exe
+# 产物: dist\ge-workday-1.0.0.exe
 ```
 
 构建脚本会自动下载对应平台的 JavaFX jmods、Maven 打包、jpackage 生成安装包。
@@ -53,7 +53,7 @@ POM 中已配置 OS 自动检测，`javafx.classifier` 无需手动修改。
 ## 项目结构
 
 ```
-workday-excel/
+workday-generate/
 ├── pom.xml
 ├── build-mac.sh          # macOS 打包脚本 → .dmg
 ├── build-win.bat         # Windows 打包脚本 → .exe
