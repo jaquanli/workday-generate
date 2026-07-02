@@ -34,7 +34,6 @@
         <TableView fx:id="tableView" VBox.vgrow="ALWAYS" styleClass="data-table">
             <columns>
                 <TableColumn fx:id="colId" text="Id" prefWidth="100" sortable="false"/>
-                <TableColumn fx:id="colNo" text="序号" prefWidth="80" sortable="false"/>
                 <TableColumn fx:id="colDate" text="日期" prefWidth="180" sortable="false"/>
                 <TableColumn fx:id="colMonth" text="月份" prefWidth="100" sortable="false"/>
                 <TableColumn fx:id="colYear" text="年份" prefWidth="100" sortable="false"/>

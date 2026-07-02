@@ -8,10 +8,9 @@ Spring Boot 4 + Apache Fesod + JavaFX 桌面应用，实现工作日 Excel 的**
 - **导出 Excel**：将当前表格数据导出为 `.xlsx` 文件
 - **清空**：一键清空表格
 
-Excel 列格式：`Id | 序号 | 日期 | 月份 | 年份`，对应原项目 `Workday` 实体。
+Excel 列格式：`Id | 日期 | 月份 | 年份`，对应原项目 `Workday` 实体。
 
 - **Id**：由用户在「起始 Id」输入框指定起始值，表格中从该值开始逐行自增（如填 `1001`，则 1001、1002、1003 …）。生成时会以该起始值重新编号。导出时 Id 列位于第一列。
-- **序号**：固定从 1 开始的行序号，与 Id 独立。
 
 ## 技术栈
 
@@ -55,9 +54,8 @@ workday-excel/
 ├── pom.xml
 └── src/main/
     ├── java/com/mycode/workday/
-    │   ├── WorkdayApplication.java      # JavaFX Application 启动入口
-    │   ├── Launcher.java                # main 入口（不继承 Application）
-    │   ├── SpringConfig.java            # @SpringBootApplication 配置类
+    │   ├── Launcher.java                # main 入口（不继承 Application，规避 JavaFX 运行时错误）
+    │   ├── WorkdayApplication.java      # JavaFX Application + @SpringBootApplication
     │   ├── model/Workday.java           # 工作日模型
     │   ├── service/
     │   │   ├── ExcelService.java        # Fesod 导出

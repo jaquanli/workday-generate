@@ -3,8 +3,7 @@ package com.mycode.workday.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mycode.workday.model.Workday;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
@@ -12,52 +11,56 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.DayOfWeek;
-import java.time.LocalDate;
-import java.time.YearMonth;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
-import java.util.function.IntConsumer;
+import java.util.function.BiConsumer;
 
 /**
- * 工作日生成服务。
+ * 工作日生成服务。算法基于「固定月份天数表 + 接口辅助」，将请求数从「全年逐天」降到约 106 次：
+ * <ol>
+ *   <li><b>固定天数表</b>：1/3/5/7/8/10/12 月 31 天，4/6/9/11 月 30 天，仅 2 月待定。</li>
+ *   <li><b>2 月探测</b>：{@code ?d={year}0229}，返回 0/1/2 → 有 29 日；返回 JSON 错误对象 → 28 天。</li>
+ *   <li><b>全年法定节假日</b>：{@code ?d={year}} 一次，用于剔除工作日中的法定假日/调休。</li>
+ *   <li><b>普通周末</b>：本地按 {@link DayOfWeek} 判断，无需请求。</li>
+ *   <li><b>补班日</b>：周末中调休要上班的日子，全年接口不标记，需对每个周末请求
+ *       {@code ?d=yyyymmdd} 确认（返回 0），16 线程并发。</li>
+ * </ol>
+ * 工作日 = (非周末 且 非法定假日) ∪ (周末 且 补班日)。
  * <p>
- * 复用原项目 WorkHoliday.execute 的节假日判断逻辑：
- * 1. 调用 http://tool.bitefu.net/jiari/?d={year} 获取全年假期标记（值: 1=假期, 2=周末）
- * 2. 周末（约 104 天）需要单独查询是否补班：调用 ?d={yyyymmdd}，返回 0 表示补班上班
- * <p>
- * <b>性能优化</b>：原实现把全年 104 个周末日逐个<b>串行</b>发起 HTTP 请求，
- * 单年耗时可达数十秒。现改为：
- * <ul>
- *   <li>全年数据一次性拉取并解析为 {@link Map}，本地 O(1) 判断；</li>
- *   <li>仅对「周末」调用接口查询补班，且用固定线程池<b>并发</b>发起；</li>
- *   <li>通过 {@link IntConsumer} 回调上报进度（已完成/总数），供 UI 显示进度条。</li>
- * </ul>
+ * 进度通过 {@code BiConsumer<Integer, Integer> (已完成, 总数)} 回调上报，在工作线程触发。
  */
+@Slf4j
 @Service
 public class WorkdayGenerateService {
 
-    private static final Logger log = LoggerFactory.getLogger(WorkdayGenerateService.class);
     private static final String API_URL = "http://tool.bitefu.net/jiari/?d=";
-
-    /** 补班查询的并发线程数 */
-    private static final int QUERY_THREADS = 8;
-    /** 单次补班查询等待所有任务的最长时间（秒） */
-    private static final long AWAIT_MINUTES = 2L;
+    /** 固定月份天数：1/3/5/7/8/10/12=31，4/6/9/11=30，2 月由探测决定 */
+    private static final int[] DAYS_IN_MONTH = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    /**
+     * 补班查询并发度。该免费接口对高并发较敏感（16 并发约 3% 超时），
+     * 实测 4 并发稳定无超时；优先保证成功率，耗时仅多几秒。
+     */
+    private static final int QUERY_THREADS = 4;
+    /** 单请求超时（秒）：给慢响应留足时间，避免误判超时 */
+    private static final int REQUEST_TIMEOUT_SECONDS = 15;
+    /** 单请求失败后的最大重试次数（含首次共 RETRY+1 次） */
+    private static final int MAX_RETRY = 3;
 
     private final HttpClient httpClient = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(10))
+            .connectTimeout(Duration.ofSeconds(REQUEST_TIMEOUT_SECONDS))
             .build();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    /**
-     * 生成指定年份的工作日列表（不带进度回调）。
-     */
+    /** 生成工作日（不带进度回调）。 */
     public List<Workday> generate(int year) throws Exception {
         return generate(year, null);
     }
@@ -65,87 +68,102 @@ public class WorkdayGenerateService {
     /**
      * 生成指定年份的工作日列表。
      *
-     * @param year            年份
-     * @param progressCallback 进度回调，参数为「已完成数量」；仅用于 UI 进度展示，可为 null。
-     *                         回调在<b>工作线程</b>触发，调用方需自行切换回 UI 线程。
+     * @param progress 进度回调 {@code (已完成, 总数)}，可为 null；在工作线程触发。
      */
-    public List<Workday> generate(int year, IntConsumer progressCallback) throws Exception {
-        // 1) 一次性获取全年假期标记，本地判断，避免逐天请求
-        Map<String, Integer> holidayMap = fetchHolidayMap(year);
-        log.info("获取到 {} 年假期数据: {} 条", year, holidayMap.size());
+    public List<Workday> generate(int year, BiConsumer<Integer, Integer> progress) throws Exception {
+        // 1) 探测 2 月天数 + 2) 全年法定节假日
+        int febDays = detectFebruaryDays(year);
+        Set<String> holidayKeys = fetchHolidayKeys(year);
 
-        // 2) 先收集所有「周末」日期：只有周末才可能补班，需要单独查询
-        List<LocalDate> weekendDates = new ArrayList<>();
+        // 3) 按固定天数表枚举全年日期，收集周末日用于补班查询
+        List<LocalDate> allDays = new ArrayList<>();
+        List<LocalDate> weekendDays = new ArrayList<>();
         for (int month = 1; month <= 12; month++) {
-            int daysInMonth = YearMonth.of(year, month).lengthOfMonth();
-            for (int day = 1; day <= daysInMonth; day++) {
-                LocalDate date = LocalDate.of(year, month, day);
+            int days = (month == 2) ? febDays : DAYS_IN_MONTH[month];
+            for (int day = 1; day <= days; day++) {
+                var date = LocalDate.of(year, month, day);
+                allDays.add(date);
                 if (isWeekend(date)) {
-                    weekendDates.add(date);
+                    weekendDays.add(date);
                 }
             }
         }
 
-        // 3) 并发查询每个周末是否为补班日。返回「是补班」的日期集合
-        Map<LocalDate, Boolean> makeupWorkdays = queryMakeupWorkdays(year, weekendDates, progressCallback);
+        // 4) 并发查询周末补班日
+        Set<LocalDate> makeupWorkdays = queryMakeupWorkdays(weekendDays, progress);
+        log.info("{} 年：2月{}天，节假日{}个，补班{}个", year, febDays, holidayKeys.size(), makeupWorkdays.size());
 
-        // 4) 组装工作日列表：工作日(非法定假期) + 补班日
+        // 5) 组装工作日：(非周末 且 非法定假日) ∪ (周末 且 补班)
         List<Workday> workdays = new ArrayList<>();
-        int no = 1;
-        for (int month = 1; month <= 12; month++) {
-            int daysInMonth = YearMonth.of(year, month).lengthOfMonth();
-            for (int day = 1; day <= daysInMonth; day++) {
-                LocalDate date = LocalDate.of(year, month, day);
-                boolean isWorkday;
-                if (isWeekend(date)) {
-                    // 周末：仅当为补班日时才计入工作日
-                    isWorkday = makeupWorkdays.getOrDefault(date, Boolean.FALSE);
-                } else {
-                    // 工作日：排除法定假期（holidayMap 中标记为 1）
-                    String md = String.format("%02d%02d", month, day);
-                    Integer flag = holidayMap.get(md);
-                    isWorkday = flag == null || flag != 1;
-                }
-                if (isWorkday) {
-                    workdays.add(new Workday(0, no++, date, month, year));
-                }
+        for (var date : allDays) {
+            boolean isWorkday = isWeekend(date)
+                    ? makeupWorkdays.contains(date)
+                    : !holidayKeys.contains(String.format("%02d%02d", date.getMonthValue(), date.getDayOfMonth()));
+            if (isWorkday) {
+                workdays.add(new Workday(0, date, date.getMonthValue(), date.getYear()));
             }
         }
+        log.info("{} 年共生成工作日 {} 个", year, workdays.size());
         return workdays;
     }
 
-    /**
-     * 并发查询给定周末日期中哪些是补班日（返回 0）。
-     * 查询过程中通过 {@code progressCallback} 上报累计已完成数量。
-     */
-    private Map<LocalDate, Boolean> queryMakeupWorkdays(int year,
-                                                        List<LocalDate> weekendDates,
-                                                        IntConsumer progressCallback) throws InterruptedException {
-        Map<LocalDate, Boolean> result = new ConcurrentHashMap<>();
-        if (weekendDates.isEmpty()) {
-            return result;
+    /** 探测 2 月天数：返回 0/1/2 → 29 天；返回 JSON 错误对象或失败 → 28 天。 */
+    private int detectFebruaryDays(int year) {
+        var body = getWithRetry(API_URL + String.format("%d0229", year));
+        if (body != null) {
+            var t = body.trim();
+            if ("0".equals(t) || "1".equals(t) || "2".equals(t)) {
+                return 29;
+            }
+            if (t.startsWith("{")) {
+                return 28;
+            }
         }
+        log.warn("2 月 29 日探测未得到明确结果，按 28 天处理");
+        return 28;
+    }
 
+    /** 获取全年法定节假日/调休的 {@code "MMdd"} 键集合。 */
+    private Set<String> fetchHolidayKeys(int year) throws Exception {
+        Set<String> keys = new HashSet<>();
+        var body = getWithRetry(API_URL + year);
+        if (body == null) {
+            log.warn("获取全年节假日失败，将仅按周末判断");
+            return keys;
+        }
+        JsonNode yearNode = objectMapper.readTree(body).get(String.valueOf(year));
+        if (yearNode != null && yearNode.isObject()) {
+            yearNode.fieldNames().forEachRemaining(keys::add);
+        }
+        return keys;
+    }
+
+    /** 并发查询每个周末是否为补班日（返回 0）。 */
+    private Set<LocalDate> queryMakeupWorkdays(List<LocalDate> weekendDays,
+                                               BiConsumer<Integer, Integer> progress) throws InterruptedException {
+        Set<LocalDate> makeup = ConcurrentHashMap.newKeySet();
+        if (weekendDays.isEmpty()) {
+            return makeup;
+        }
         int[] done = {0};
-        int total = weekendDates.size();
+        int total = weekendDays.size();
         ExecutorService pool = Executors.newFixedThreadPool(QUERY_THREADS);
         try {
-            for (LocalDate date : weekendDates) {
+            for (var date : weekendDays) {
                 pool.submit(() -> {
                     try {
-                        String fdate = String.format("%d%02d%02d", year, date.getMonthValue(), date.getDayOfMonth());
-                        String body = httpGet(API_URL + fdate);
-                        // 返回 "0" 表示补班上班
+                        var fdate = String.format("%d%02d%02d",
+                                date.getYear(), date.getMonthValue(), date.getDayOfMonth());
+                        var body = getWithRetry(API_URL + fdate);
                         if (body != null && body.trim().equals("0")) {
-                            result.put(date, Boolean.TRUE);
+                            makeup.add(date);
                         }
                     } finally {
                         done[0]++;
-                        if (progressCallback != null) {
+                        if (progress != null) {
                             try {
-                                progressCallback.accept(done[0]);
+                                progress.accept(done[0], total);
                             } catch (Exception ignored) {
-                                // 回调异常不应影响生成流程
                             }
                         }
                     }
@@ -153,63 +171,60 @@ public class WorkdayGenerateService {
             }
         } finally {
             pool.shutdown();
-            // 等待所有补班查询完成
-            if (!pool.awaitTermination(AWAIT_MINUTES, TimeUnit.MINUTES)) {
-                log.warn("补班查询未在 {} 分钟内完成，强制关闭线程池", AWAIT_MINUTES);
+            if (!pool.awaitTermination(2, TimeUnit.MINUTES)) {
+                log.warn("补班查询超时，强制关闭线程池");
                 pool.shutdownNow();
             }
         }
-        log.info("{} 年共识别补班日 {} 个", year, result.size());
-        return result;
+        return makeup;
     }
 
     /**
-     * 获取全年假期标记，解析为 {@code "MMdd" -> 状态码} 的 Map。
-     * 状态码：1=法定假期, 2=周末休息（由 API 约定）。
+     * 带重试的 HTTP GET；彻底失败返回 null。
+     * <p>
+     * 退避策略：基础间隔 500ms 起步指数增长（500/1000/2000ms），叠加随机抖动，
+     * 避免多个失败请求在同一时刻集体重试，从而二次压垮接口。
      */
-    private Map<String, Integer> fetchHolidayMap(int year) throws Exception {
-        Map<String, Integer> map = new ConcurrentHashMap<>();
-        String body = httpGet(API_URL + year);
-        if (body == null) {
-            return map;
-        }
-        JsonNode yearNode = objectMapper.readTree(body).get(String.valueOf(year));
-        if (yearNode == null || !yearNode.isObject()) {
-            return map;
-        }
-        yearNode.fields().forEachRemaining(e -> {
-            try {
-                map.put(e.getKey(), e.getValue().asInt());
-            } catch (Exception ignored) {
+    private String getWithRetry(String url) {
+        for (int attempt = 0; attempt <= MAX_RETRY; attempt++) {
+            String body = httpGet(url);
+            if (body != null) {
+                return body;
             }
-        });
-        return map;
+            if (attempt < MAX_RETRY) {
+                try {
+                    // 基础退避 500ms * 2^attempt + [0,300)ms 随机抖动
+                    long backoff = 500L * (1L << attempt) + ThreadLocalRandom.current().nextInt(300);
+                    Thread.sleep(backoff);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return null;
+                }
+            }
+        }
+        return null;
     }
 
     private String httpGet(String url) {
         try {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
-                    .timeout(Duration.ofSeconds(10))
+                    .timeout(Duration.ofSeconds(REQUEST_TIMEOUT_SECONDS))
                     .GET()
                     .build();
-            HttpResponse<String> response = httpClient.send(
-                    request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() == 200) {
                 return response.body();
             }
-            log.warn("HTTP {} 请求失败: status={}", url, response.statusCode());
+            log.warn("HTTP 请求失败: {} status={}", url, response.statusCode());
         } catch (Exception e) {
             log.warn("HTTP 请求异常: {} - {}", url, e.getMessage());
         }
         return null;
     }
 
-    /**
-     * 判断是否为周末（周六或周日）。
-     */
     private boolean isWeekend(LocalDate date) {
-        DayOfWeek dow = date.getDayOfWeek();
+        var dow = date.getDayOfWeek();
         return dow == DayOfWeek.SATURDAY || dow == DayOfWeek.SUNDAY;
     }
 }

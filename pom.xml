@@ -15,7 +15,7 @@
     <artifactId>workday-excel</artifactId>
     <version>1.0.0</version>
     <name>workday-excel</name>
-    <description>SpringBoot4 + Apache POI + JavaFX 工作日Excel导入导出工具</description>
+    <description>SpringBoot4 + Apache Fesod + JavaFX 工作日Excel生成导出工具</description>
 
     <properties>
         <java.version>17</java.version>
@@ -38,6 +38,13 @@
             <version>${fesod.version}</version>
         </dependency>
 
+        <!-- Lombok: 消除实体/DTO 样板代码 -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
         <!-- JavaFX -->
         <dependency>
             <groupId>org.openjfx</groupId>
@@ -58,7 +65,7 @@
             <classifier>${javafx.classifier}</classifier>
         </dependency>
 
-        <!-- Jackson (Spring Boot 已自带, 用于JSON解析) -->
+        <!-- Jackson: 解析节假日接口返回的 JSON (非 Web starter 需显式引入) -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
